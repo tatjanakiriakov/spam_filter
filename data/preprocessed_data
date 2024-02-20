@@ -1,1 +1,135 @@
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
+import matplotlib.pyplot as plt
 
+df = pd.read_csv("/Users/tatjanakiriakov/Desktop/spam_filter/data/raw_data/SMSSpamCollection.csv", on_bad_lines="skip", sep=";", names=["label", "message"])
+
+df.head()
+
+df = df.drop(df.index[0])
+df = df.dropna(subset=['message'])
+df['message_length'] = df['message'].apply(lambda x: len(str(x)))
+average_length = df['message_length'].mean()
+print("Average character length of the 'message' column:", average_length)
+
+df['message_length'] = df['message'].str.len()
+
+# Define the bins for the distribution
+bins = [0, 50, 100, 150, 200, 250, 300]
+
+# Calculate the distribution of message lengths
+distribution = pd.cut(df['message_length'], bins=bins).value_counts()
+
+print("Distribution of average character length in column 'message':")
+print(distribution)
+
+
+
+vectorizer = CountVectorizer(stop_words='english', ngram_range=(1, 2), max_features=1000)
+
+X = vectorizer.fit_transform(df['message'])
+
+feature_names = vectorizer.get_feature_names_out()
+
+word_counts = X.sum(axis=0)
+
+word_freq_df = pd.DataFrame(word_counts, columns=feature_names).transpose()
+word_freq_df.columns = ['Frequency']
+word_freq_df = word_freq_df.sort_values(by='Frequency', ascending=False)
+
+print("Top 10 most frequent words:")
+print(word_freq_df.head(10))
+
+label_counts = df['label'].value_counts()
+
+# Print the counts of "spam" and "ham" values
+print("Number of 'spam' values:", label_counts['spam'])
+print("Number of 'ham' values:", label_counts['ham'])
+
+spam_messages = df[df['label'] == 'spam']['message']
+ham_messages = df[df['label'] == 'ham']['message']
+
+vectorizer_spam = CountVectorizer(stop_words='english', max_features=1000)
+X_spam = vectorizer_spam.fit_transform(spam_messages)
+
+feature_names_spam = vectorizer_spam.get_feature_names_out()
+
+word_counts_spam = X_spam.sum(axis=0)
+
+word_freq_df_spam = pd.DataFrame(word_counts_spam, columns=feature_names_spam).transpose()
+word_freq_df_spam.columns = ['Frequency']
+word_freq_df_spam = word_freq_df_spam.sort_values(by='Frequency', ascending=False)
+
+print("Top 10 most frequent words in 'spam' messages:")
+print(word_freq_df_spam.head(10))
+
+vectorizer_ham = CountVectorizer(stop_words='english', max_features=1000)
+X_ham = vectorizer_ham.fit_transform(ham_messages)
+
+feature_names_ham = vectorizer_ham.get_feature_names_out()
+
+word_counts_ham = X_ham.sum(axis=0)
+
+word_freq_df_ham = pd.DataFrame(word_counts_ham, columns=feature_names_ham).transpose()
+word_freq_df_ham.columns = ['Frequency']
+word_freq_df_ham = word_freq_df_ham.sort_values(by='Frequency', ascending=False)
+
+print("\nTop 10 most frequent words in 'ham' messages:")
+print(word_freq_df_ham.head(10))
+
+duplicates = df[df.duplicated()]
+
+print("Duplicate Rows:")
+print(duplicates)
+
+df_no_duplicates = df.drop_duplicates()
+
+print("Shape of DataFrame before removing duplicates:", df.shape)
+print("Shape of DataFrame after removing duplicates:", df_no_duplicates.shape)
+
+output_file = "/Users/tatjanakiriakov/Desktop/spam_filter/data/processed_data/preprocess_data.csv"
+
+df_no_duplicates.to_csv(output_file, index=False)
+
+print("Changes saved to", output_file)
+
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+
+# Drop rows with missing values in the "message" column
+df = df.dropna(subset=['message'])
+
+# Join all the messages into a single string
+all_messages = ' '.join(df['message'])
+
+# Initialize CountVectorizer to tokenize the words and count their frequencies
+vectorizer = CountVectorizer(stop_words='english')
+X = vectorizer.fit_transform([all_messages])
+
+# Get the feature names (words)
+feature_names = vectorizer.get_feature_names_out()
+
+# Get the word frequencies
+word_freq = dict(zip(feature_names, X.toarray()[0]))
+
+# Generate word cloud from word frequencies
+wordcloud = WordCloud(width=800, height=400, background_color='white').generate_from_frequencies(word_freq)
+
+# Plot the word cloud
+plt.figure(figsize=(12, 6))
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.title('Word Cloud of Most Frequent Words')
+plt.axis('off')
+plt.show()
+
+# Calculate the length of each message in the "message" column
+df['message_length'] = df['message'].apply(len)
+
+# Plot the histogram of message lengths
+plt.figure(figsize=(10, 6))
+plt.hist(df['message_length'], bins=50, color='lightgreen', edgecolor='black')
+plt.xlabel('Message Length')
+plt.ylabel('Frequency')
+plt.title('Distribution of Message Length')
+plt.grid(True)
+plt.show()
